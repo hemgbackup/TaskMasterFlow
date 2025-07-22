@@ -7,6 +7,7 @@ TaskFlow is a modern task management application built with a full-stack TypeScr
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Interface language: Portuguese (all interface text except integrated app names like WhatsApp should be in Portuguese).
 
 ## System Architecture
 

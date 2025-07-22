@@ -12,7 +12,7 @@ export default function Sidebar() {
   const [location] = useLocation();
 
   const menuItems = [
-    { path: "/", icon: Home, label: "Dashboard", active: location === "/" },
+    { path: "/", icon: Home, label: "Painel", active: location === "/" },
     { path: "/tasks", icon: ListTodo, label: "Tarefas", active: location === "/tasks" },
     { path: "/whatsapp", icon: MessageCircle, label: "WhatsApp", active: location === "/whatsapp" },
     { path: "/reports", icon: BarChart3, label: "Relatórios", active: location === "/reports" },

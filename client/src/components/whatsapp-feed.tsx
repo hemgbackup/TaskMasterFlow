@@ -123,8 +123,8 @@ export default function WhatsAppFeed() {
           
           {messages.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              <p>Nenhuma mensagem recente</p>
-              <p className="text-sm">As mensagens do WhatsApp aparecerão aqui</p>
+              <p>Nenhuma mensagem do WhatsApp</p>
+              <p className="text-sm">Conecte seu WhatsApp para ver mensagens aqui</p>
             </div>
           )}
         </div>
