@@ -18,17 +18,22 @@ import {
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  updateLastLogin(id: number): Promise<void>;
   
   // Task operations
-  getTasks(userId: string): Promise<Task[]>;
+  getTasks(userId: number): Promise<Task[]>;
   getTask(id: number): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<boolean>;
-  getTaskStats(userId: string): Promise<{
+  getTaskStats(userId: number): Promise<{
     totalTasks: number;
     inProgress: number;
     completed: number;
@@ -36,46 +41,66 @@ export interface IStorage {
   }>;
   
   // WhatsApp messages
-  getWhatsappMessages(userId: string): Promise<WhatsappMessage[]>;
+  getWhatsappMessages(userId: number): Promise<WhatsappMessage[]>;
   getWhatsappMessage(id: number): Promise<WhatsappMessage | undefined>;
   createWhatsappMessage(message: InsertWhatsappMessage): Promise<WhatsappMessage>;
   updateWhatsappMessage(id: number, message: Partial<InsertWhatsappMessage>): Promise<WhatsappMessage | undefined>;
   
   // WhatsApp connections
-  getWhatsappConnection(userId: string): Promise<WhatsappConnection | undefined>;
+  getWhatsappConnection(userId: number): Promise<WhatsappConnection | undefined>;
   createWhatsappConnection(connection: InsertWhatsappConnection): Promise<WhatsappConnection>;
-  updateWhatsappConnection(userId: string, connection: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined>;
+  updateWhatsappConnection(userId: number, connection: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined>;
   
   // Notifications
-  getNotifications(userId: string): Promise<Notification[]>;
+  getNotifications(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (mandatory for Replit Auth)
-  async getUser(id: string): Promise<User | undefined> {
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(userData).returning();
+    return user;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
     const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
+      .update(users)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(users.id, id))
       .returning();
     return user;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateLastLogin(id: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, id));
+  }
+
   // Task operations
-  async getTasks(userId: string): Promise<Task[]> {
+  async getTasks(userId: number): Promise<Task[]> {
     return await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt));
   }
 
@@ -120,7 +145,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // WhatsApp messages
-  async getWhatsappMessages(userId: string): Promise<WhatsappMessage[]> {
+  async getWhatsappMessages(userId: number): Promise<WhatsappMessage[]> {
     return await db.select().from(whatsappMessages).where(eq(whatsappMessages.userId, userId)).orderBy(desc(whatsappMessages.createdAt));
   }
 
@@ -144,7 +169,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // WhatsApp connections
-  async getWhatsappConnection(userId: string): Promise<WhatsappConnection | undefined> {
+  async getWhatsappConnection(userId: number): Promise<WhatsappConnection | undefined> {
     const [connection] = await db.select().from(whatsappConnections).where(eq(whatsappConnections.userId, userId));
     return connection;
   }
@@ -154,7 +179,7 @@ export class DatabaseStorage implements IStorage {
     return newConnection;
   }
 
-  async updateWhatsappConnection(userId: string, connection: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined> {
+  async updateWhatsappConnection(userId: number, connection: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined> {
     const [updatedConnection] = await db
       .update(whatsappConnections)
       .set(connection)
@@ -164,7 +189,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Notifications
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: number): Promise<Notification[]> {
     return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
   }
 
@@ -184,37 +209,74 @@ export class DatabaseStorage implements IStorage {
 
 // In-memory storage for development/migration compatibility
 export class MemStorage implements IStorage {
-  private users: Map<string, User> = new Map();
+  private users: Map<number, User> = new Map();
   private tasks: Map<number, Task> = new Map();
   private whatsappMessages: Map<number, WhatsappMessage> = new Map();
-  private whatsappConnections: Map<string, WhatsappConnection> = new Map();
+  private whatsappConnections: Map<number, WhatsappConnection> = new Map();
   private notifications: Map<number, Notification> = new Map();
+  private nextUserId = 1;
   private nextTaskId = 1;
   private nextMessageId = 1;
   private nextNotificationId = 1;
   private nextConnectionId = 1;
 
   // User operations
-  async getUser(id: string): Promise<User | undefined> {
+  async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
     const user: User = {
       ...userData,
-      email: userData.email || null,
+      id: this.nextUserId++,
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
-      profileImageUrl: userData.profileImageUrl || null,
-      createdAt: this.users.get(userData.id)?.createdAt || new Date(),
+      role: userData.role || "user",
+      isActive: userData.isActive !== undefined ? userData.isActive : true,
+      lastLogin: null,
+      createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.users.set(userData.id, user);
+    this.users.set(user.id, user);
     return user;
   }
 
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+    
+    const updatedUser: User = { 
+      ...existingUser, 
+      ...userData,
+      updatedAt: new Date()
+    };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values())
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async updateLastLogin(id: number): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.lastLogin = new Date();
+      this.users.set(id, user);
+    }
+  }
+
   // Task operations
-  async getTasks(userId: string): Promise<Task[]> {
+  async getTasks(userId: number): Promise<Task[]> {
     return Array.from(this.tasks.values())
       .filter(task => task.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
@@ -254,7 +316,7 @@ export class MemStorage implements IStorage {
     return this.tasks.delete(id);
   }
 
-  async getTaskStats(userId: string): Promise<{
+  async getTaskStats(userId: number): Promise<{
     totalTasks: number;
     inProgress: number;
     completed: number;
@@ -271,7 +333,7 @@ export class MemStorage implements IStorage {
   }
 
   // WhatsApp messages
-  async getWhatsappMessages(userId: string): Promise<WhatsappMessage[]> {
+  async getWhatsappMessages(userId: number): Promise<WhatsappMessage[]> {
     return Array.from(this.whatsappMessages.values())
       .filter(message => message.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
@@ -303,8 +365,8 @@ export class MemStorage implements IStorage {
   }
 
   // WhatsApp connections
-  async getWhatsappConnection(userId: string): Promise<WhatsappConnection | undefined> {
-    return this.whatsappConnections.get(userId);
+  async getWhatsappConnection(userId: number): Promise<WhatsappConnection | undefined> {
+    return Array.from(this.whatsappConnections.values()).find(conn => conn.userId === userId);
   }
 
   async createWhatsappConnection(connectionData: InsertWhatsappConnection): Promise<WhatsappConnection> {
@@ -317,21 +379,21 @@ export class MemStorage implements IStorage {
       lastConnected: connectionData.lastConnected || null,
       createdAt: new Date(),
     };
-    this.whatsappConnections.set(connectionData.userId, connection);
+    this.whatsappConnections.set(connection.id, connection);
     return connection;
   }
 
-  async updateWhatsappConnection(userId: string, connectionData: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined> {
-    const existingConnection = this.whatsappConnections.get(userId);
+  async updateWhatsappConnection(userId: number, connectionData: Partial<InsertWhatsappConnection>): Promise<WhatsappConnection | undefined> {
+    const existingConnection = Array.from(this.whatsappConnections.values()).find(conn => conn.userId === userId);
     if (!existingConnection) return undefined;
     
     const updatedConnection: WhatsappConnection = { ...existingConnection, ...connectionData };
-    this.whatsappConnections.set(userId, updatedConnection);
+    this.whatsappConnections.set(existingConnection.id, updatedConnection);
     return updatedConnection;
   }
 
   // Notifications
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: number): Promise<Notification[]> {
     return Array.from(this.notifications.values())
       .filter(notification => notification.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));

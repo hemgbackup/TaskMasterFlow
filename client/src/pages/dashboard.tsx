@@ -1,33 +1,16 @@
-import { useState, useEffect } from "react";
-import { SidebarLayout } from "@/components/sidebar-layout";
+import { useState } from "react";
+import Sidebar from "@/components/sidebar";
 import StatsCards from "@/components/stats-cards";
 import TaskList from "@/components/task-list";
 import QuickActions from "@/components/quick-actions";
 import WhatsAppFeed from "@/components/whatsapp-feed";
 import TaskModal from "@/components/task-modal";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
-  const { isAuthenticated, isLoading } = useAuth();
-  const { toast } = useToast();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Não autorizado",
-        description: "Você foi desconectado. Fazendo login novamente...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-    }
-  }, [isAuthenticated, isLoading, toast]);
+  const { user } = useAuth();
 
   const openTaskModal = (task?: any) => {
     setEditingTask(task);
@@ -39,40 +22,45 @@ export default function Dashboard() {
     setIsTaskModalOpen(false);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
-    <SidebarLayout>
-      <div className="flex-1 p-6 overflow-y-auto">
-        <StatsCards />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          <div className="lg:col-span-2">
-            <TaskList onEditTask={openTaskModal} onCreateTask={() => openTaskModal()} />
-          </div>
-          
-          <div className="space-y-6">
-            <QuickActions onCreateTask={() => openTaskModal()} />
-            <WhatsAppFeed />
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900">
+      <Sidebar />
       
-      <TaskModal 
-        isOpen={isTaskModalOpen} 
-        onClose={closeTaskModal} 
-        editingTask={editingTask}
-      />
-    </SidebarLayout>
+      <main className="flex-1 overflow-hidden">
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Bem-vindo ao TaskFlow, {user?.firstName || user?.username}!
+              </p>
+            </div>
+            <QuickActions onCreateTask={() => openTaskModal()} />
+          </div>
+
+          <StatsCards />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <TaskList 
+                onEditTask={openTaskModal} 
+                onCreateTask={() => openTaskModal()}
+                limit={5}
+              />
+            </div>
+            
+            <div>
+              <WhatsAppFeed limit={10} />
+            </div>
+          </div>
+
+          <TaskModal
+            isOpen={isTaskModalOpen}
+            onClose={closeTaskModal}
+            task={editingTask}
+          />
+        </div>
+      </main>
+    </div>
   );
 }
