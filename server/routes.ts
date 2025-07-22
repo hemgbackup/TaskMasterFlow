@@ -226,35 +226,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate QR Code for WhatsApp
+  // Generate WhatsApp QR code
   app.post("/api/whatsapp/qr", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
-      // Generate a mock QR code (in real implementation, this would connect to WhatsApp Business API)
-      const qrCode = `https://wa.me/qr/MOCK_QR_CODE_${Date.now()}`;
+      // Simulate QR code generation (in real app, this would use WhatsApp Web API)
+      const qrCode = `whatsapp_qr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Update or create WhatsApp connection
-      const existingConnection = await storage.getWhatsappConnection(userId);
+      // Create or update connection with QR code
+      const connectionData = {
+        userId,
+        qrCode,
+        isConnected: false,
+        phoneNumber: null,
+        lastConnected: null,
+      };
       
-      if (existingConnection) {
-        const connection = await storage.updateWhatsappConnection(userId, {
-          qrCode,
-          isConnected: false,
-        });
-        res.json(connection);
+      let connection = await storage.getWhatsappConnection(userId);
+      
+      if (connection) {
+        connection = await storage.updateWhatsappConnection(userId, connectionData);
       } else {
-        const connection = await storage.createWhatsappConnection({
-          userId,
-          qrCode,
-          isConnected: false,
-        });
-        res.json(connection);
+        connection = await storage.createWhatsappConnection(connectionData);
       }
+      
+      res.json({ 
+        success: true, 
+        qrCode,
+        message: "QR code gerado com sucesso" 
+      });
     } catch (error) {
+      console.error("Error generating QR code:", error);
       res.status(500).json({ message: "Failed to generate QR code" });
     }
   });
+
+
 
   // Notifications routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
