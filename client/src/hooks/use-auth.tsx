@@ -33,7 +33,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(credentials),
+      });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+      
       return await res.json();
     },
     onSuccess: (user: User) => {
@@ -54,7 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (userData: RegisterData) => {
-      const res = await apiRequest("POST", "/api/register", userData);
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(userData),
+      });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+      
       return await res.json();
     },
     onSuccess: (user: User) => {
@@ -75,7 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
