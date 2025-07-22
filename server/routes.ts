@@ -6,6 +6,44 @@ import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Endpoint temporário para popular dados iniciais
+  app.post("/api/populate-initial-data", async (req, res) => {
+    try {
+      // Adicionar mensagens WhatsApp de exemplo
+      const sampleMessages = [
+        {
+          contact: "Maria Santos",
+          content: "Preciso urgente de uma correção no sistema de pagamentos",
+          time: "14:30",
+          converted: false,
+          priority: "alta"
+        },
+        {
+          contact: "João Oliveira",
+          content: "Quando vai ficar pronto o relatório mensal?",
+          time: "13:45", 
+          converted: false,
+          priority: "media"
+        },
+        {
+          contact: "Ana Silva",
+          content: "Gostaria de agendar uma reunião para próxima semana",
+          time: "12:15",
+          converted: false,
+          priority: "baixa"
+        }
+      ];
+
+      for (const messageData of sampleMessages) {
+        await storage.createWhatsappMessage(messageData);
+      }
+
+      res.json({ message: "Dados iniciais criados com sucesso!" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar dados iniciais" });
+    }
+  });
+  
   // Task routes
   app.get("/api/tasks", async (req, res) => {
     try {

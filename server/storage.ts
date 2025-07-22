@@ -1,4 +1,6 @@
 import { users, tasks, whatsappMessages, type User, type InsertUser, type Task, type InsertTask, type WhatsappMessage, type InsertWhatsappMessage } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -165,4 +167,97 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getTasks(): Promise<Task[]> {
+    return await db.select().from(tasks).orderBy(tasks.createdAt);
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task || undefined;
+  }
+
+  async createTask(insertTask: InsertTask): Promise<Task> {
+    const [task] = await db
+      .insert(tasks)
+      .values(insertTask)
+      .returning();
+    return task;
+  }
+
+  async updateTask(id: number, taskUpdate: Partial<InsertTask>): Promise<Task | undefined> {
+    const [task] = await db
+      .update(tasks)
+      .set(taskUpdate)
+      .where(eq(tasks.id, id))
+      .returning();
+    return task || undefined;
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db.delete(tasks).where(eq(tasks.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getTaskStats(): Promise<{
+    totalTasks: number;
+    inProgress: number;
+    completed: number;
+    whatsappTasks: number;
+  }> {
+    const allTasks = await db.select().from(tasks);
+    return {
+      totalTasks: allTasks.length,
+      inProgress: allTasks.filter(t => t.status === "em-andamento").length,
+      completed: allTasks.filter(t => t.completed).length,
+      whatsappTasks: allTasks.filter(t => t.fromWhatsapp).length
+    };
+  }
+
+  async getWhatsappMessages(): Promise<WhatsappMessage[]> {
+    return await db.select().from(whatsappMessages).orderBy(whatsappMessages.createdAt);
+  }
+
+  async getWhatsappMessage(id: number): Promise<WhatsappMessage | undefined> {
+    const [message] = await db.select().from(whatsappMessages).where(eq(whatsappMessages.id, id));
+    return message || undefined;
+  }
+
+  async createWhatsappMessage(insertMessage: InsertWhatsappMessage): Promise<WhatsappMessage> {
+    const [message] = await db
+      .insert(whatsappMessages)
+      .values(insertMessage)
+      .returning();
+    return message;
+  }
+
+  async updateWhatsappMessage(id: number, messageUpdate: Partial<InsertWhatsappMessage>): Promise<WhatsappMessage | undefined> {
+    const [message] = await db
+      .update(whatsappMessages)
+      .set(messageUpdate)
+      .where(eq(whatsappMessages.id, id))
+      .returning();
+    return message || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();

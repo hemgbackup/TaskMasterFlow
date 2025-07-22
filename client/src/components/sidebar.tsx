@@ -13,10 +13,10 @@ export default function Sidebar() {
 
   const menuItems = [
     { path: "/", icon: Home, label: "Dashboard", active: location === "/" },
-    { path: "/tasks", icon: ListTodo, label: "Tarefas", active: false },
-    { path: "/whatsapp", icon: MessageCircle, label: "WhatsApp", active: false },
-    { path: "/reports", icon: BarChart3, label: "Relatórios", active: false },
-    { path: "/settings", icon: Settings, label: "Configurações", active: false },
+    { path: "/tasks", icon: ListTodo, label: "Tarefas", active: location === "/tasks" },
+    { path: "/whatsapp", icon: MessageCircle, label: "WhatsApp", active: location === "/whatsapp" },
+    { path: "/reports", icon: BarChart3, label: "Relatórios", active: location === "/reports" },
+    { path: "/settings", icon: Settings, label: "Configurações", active: location === "/settings" },
   ];
 
   return (
